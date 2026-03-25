@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Veloura SaaS</title>
+
+<style>
+body{
+  margin:0;
+  font-family:Poppins, sans-serif;
+  background:#0a0a0a;
+  color:#fff;
+  text-align:center;
+}
+
+input{
+  padding:10px;
+  margin:10px;
+  width:250px;
+  border:none;
+  border-radius:8px;
+}
+
+button{
+  padding:10px 20px;
+  border:none;
+  border-radius:8px;
+  background:#00f5ff;
+  cursor:pointer;
+  margin:5px;
+}
+
+.card{
+  background:#111;
+  margin:10px;
+  padding:15px;
+  border-radius:10px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Veloura SaaS</h1>
+
+<!-- AUTH -->
+<div id="authDiv">
+  <h2>Login / Signup</h2>
+  <input id="email" placeholder="Email"><br>
+  <input id="password" type="password" placeholder="Password"><br>
+  <button onclick="signup()">Signup</button>
+  <button onclick="login()">Login</button>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none;">
+
+  <h2 id="role"></h2>
+
+  <input id="name" placeholder="Client Name"><br>
+  <input id="project" placeholder="Project"><br>
+
+  <button onclick="addLead()">Add Lead</button>
+  <button onclick="logout()">Logout</button>
+
+  <h3>Leads</h3>
+  <div id="data"></div>
+
+  <h3>Payments</h3>
+  <button onclick="payNow(999)">Pay ₹999</button>
+
+</div>
+
+<script type="module">
+
+// 🔥 FIREBASE IMPORTS
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  query,
+  where,
+  getDocs,
+  onSnapshot 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+
+// 🔑 YOUR CONFIG
+const firebaseConfig = {
+  apiKey: "AIzaSyAO0B24cY-BzS5FvYFS7QQQsKcFC-D7l7M",
+  authDomain: "veloura-8936d.firebaseapp.com",
+  projectId: "veloura-8936d",
+  storageBucket: "veloura-8936d.firebasestorage.app",
+  messagingSenderId: "148175624287",
+  appId: "1:148175624287:web:b2245c2a3b415c977963ea"
+};
+
+const appFirebase = initializeApp(firebaseConfig);
+const auth = getAuth(appFirebase);
+const db = getFirestore(appFirebase);
+
+
+// SIGNUP
+window.signup = async function(){
+  const userCred = await createUserWithEmailAndPassword(
+    auth,
+    email.value,
+    password.value
+  );
+
+  const user = userCred.user;
+
+  await addDoc(collection(db,"users"),{
+    uid: user.uid,
+    role: "client"
+  });
+
+  alert("Signup Done ✅");
+};
+
+
+// LOGIN
+window.login = async function(){
+  await signInWithEmailAndPassword(
+    auth,
+    email.value,
+    password.value
+  );
+};
+
+
+// LOGOUT
+window.logout = ()=> signOut(auth);
+
+
+// AUTH STATE
+onAuthStateChanged(auth, async (user)=>{
+  if(user){
+
+    authDiv.style.display="none";
+    app.style.display="block";
+
+    const q = query(collection(db,"users"), where("uid","==",user.uid));
+    const snap = await getDocs(q);
+
+    let roleType = "client";
+
+    snap.forEach(doc=>{
+      roleType = doc.data().role;
+    });
+
+    if(roleType === "admin"){
+      role.innerHTML = "👑 Admin Panel";
+      loadAllLeads();
+    }else{
+      role.innerHTML = "👤 Client Dashboard";
+      loadUserLeads(user.uid);
+    }
+
+  }else{
+    authDiv.style.display="block";
+    app.style.display="none";
+  }
+});
+
+
+// ADD LEAD
+window.addLead = async function(){
+  const user = auth.currentUser;
+
+  await addDoc(collection(db,"leads"),{
+    name:name.value,
+    project:project.value,
+    userId:user.uid
+  });
+};
+
+
+// CLIENT LEADS
+function loadUserLeads(uid){
+  const q = query(collection(db,"leads"), where("userId","==",uid));
+
+  onSnapshot(q, snap=>{
+    data.innerHTML="";
+    snap.forEach(doc=>{
+      let d = doc.data();
+      data.innerHTML += `<div class="card">${d.name} - ${d.project}</div>`;
+    });
+  });
+}
+
+
+// ADMIN LEADS
+function loadAllLeads(){
+  onSnapshot(collection(db,"leads"), snap=>{
+    data.innerHTML="";
+    snap.forEach(doc=>{
+      let d = doc.data();
+      data.innerHTML += `<div class="card">${d.name} - ${d.project}</div>`;
+    });
+  });
+}
+
+
+// 💳 PAYMENT
+window.payNow = function(amount){
+
+var options = {
+key: "YOUR_RAZORPAY_KEY",
+amount: amount * 100,
+currency: "INR",
+name: "Veloura Agency",
+handler: function(){
+alert("Payment Success 💰");
+window.location.href="https://wa.me/918252212864?text=Paid ₹"+amount;
+}
+};
+
+var rzp = new Razorpay(options);
+rzp.open();
+
+};
+
+</script>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+</body>
+</html>
